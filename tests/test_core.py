@@ -16,6 +16,7 @@ import numbers
 from collections import namedtuple
 import shutil
 from contextlib import contextmanager
+from copy import deepcopy
 
 
 # FIXTURES
@@ -400,40 +401,41 @@ def test_trim(atol=1e-5, rtol=1e-8):
 
 
 def test_get_value_from_dist():
-
+    rng = scaper.util._check_random_state(0)
     # const
-    x = scaper.core._get_value_from_dist(('const', 1))
+    x = scaper.core._get_value_from_dist(('const', 1), rng)
     assert x == 1
 
     # choose
     for _ in range(10):
-        x = scaper.core._get_value_from_dist(('choose', [1, 2, 3]))
+        x = scaper.core._get_value_from_dist(('choose', [1, 2, 3]), rng)
         assert x in [1, 2, 3]
 
     # uniform
     for _ in range(10):
-        x = scaper.core._get_value_from_dist(('choose', [1, 2, 3]))
+        x = scaper.core._get_value_from_dist(('choose', [1, 2, 3]), rng)
         assert x in [1, 2, 3]
 
     # normal
     for _ in range(10):
-        x = scaper.core._get_value_from_dist(('normal', 5, 1))
+        x = scaper.core._get_value_from_dist(('normal', 5, 1), rng)
         assert scaper.util.is_real_number(x)
 
     # truncnorm
     for _ in range(10):
-        x = scaper.core._get_value_from_dist(('truncnorm', 5, 10, 0, 10))
+        x = scaper.core._get_value_from_dist(('truncnorm', 5, 10, 0, 10), rng)
         assert scaper.util.is_real_number(x)
         assert 0 <= x <= 10
 
     # COPY TESTS FROM test_validate_distribution (to ensure validation applied)
     def __test_bad_tuple_list(tuple_list):
+        rng = scaper.util._check_random_state(0)
         for t in tuple_list:
             if isinstance(t, tuple):
                 print(t, len(t))
             else:
                 print(t)
-            pytest.raises(ScaperError, scaper.core._get_value_from_dist, t)
+            pytest.raises(ScaperError, scaper.core._get_value_from_dist, t, random_state=rng)
 
     # not tuple = error
     nontuples = [[], 5, 'yes']
@@ -1025,9 +1027,51 @@ def test_scaper_instantiate():
         regjam = jams.load(REG_JAM_PATH)
         _compare_scaper_jams(jam, regjam)
 
+    
+def test_generate_with_seeding(atol=1e-4, rtol=1e-8):
+    # test a scaper generator with different random seeds. init with same random seed
+    # over and over to make sure the output wav stays the same
+    seeds = [
+        0, 10, 20, 
+        scaper.util._check_random_state(0),
+        scaper.util._check_random_state(10),
+        scaper.util._check_random_state(20)
+    ]
+    num_generators = 3
+    for seed in seeds:
+        generators = []
+        for i in range(num_generators):
+            generators.append(create_scaper_with_random_seed(seed))
 
-def create_scaper_scene():
-    sc = scaper.Scaper(10.0, fg_path=FG_PATH, bg_path=BG_PATH)
+        tmpfiles = []
+        with _close_temp_files(tmpfiles):
+            wav_files = [
+                tempfile.NamedTemporaryFile(suffix='.wav', delete=True) 
+                for i in range(num_generators)
+            ]
+            jam_files = [
+                tempfile.NamedTemporaryFile(suffix='.jams', delete=True) 
+                for i in range(num_generators)
+            ]
+            txt_files = [
+                tempfile.NamedTemporaryFile(suffix='.txt', delete=True) 
+                for i in range(num_generators)
+            ]
+
+            tmpfiles += wav_files + jam_files + txt_files
+            for i, sc in enumerate(generators):
+                generators[i].generate(
+                    wav_files[i].name, jam_files[i].name, txt_path=txt_files[i].name,
+                        disable_instantiation_warnings=True
+                )
+            
+            audio = [soundfile.read(wav_file.name)[0] for wav_file in wav_files]
+            for i, a in enumerate(audio):
+                assert np.allclose(audio[0], a, atol=atol, rtol=rtol)
+
+
+def create_scaper_with_random_seed(seed):
+    sc = scaper.Scaper(10.0, fg_path=FG_PATH, bg_path=BG_PATH, random_state=deepcopy(seed))
     sc.ref_db = -50
     sc.sr = 44100
 
@@ -1081,7 +1125,7 @@ def create_scaper_scene():
 
 
 def _test_generate_sources(SR, atol=1e-4, rtol=1e-8):
-    sc = create_scaper_scene()
+    sc = create_scaper_with_random_seed(0)
     tmpfiles = []
 
     @contextmanager

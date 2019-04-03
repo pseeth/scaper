@@ -12,3 +12,5 @@ scaper/bin/*
 **/.DS_Store
 tests/separation/*/foreground/*.wav
 tests/separation/*/background/*.wav
+tests/separation/mix_sources/foreground/*.wav
+tests/separation/mix_sources/background/*.wav

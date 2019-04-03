@@ -136,10 +136,7 @@ def _compare_scaper_jams(jam, regjam):
 
     keys_in_order = ['label', 'source_file', 'source_time', 'event_time', 'event_duration',
      'snr', 'role', 'pitch_shift', 'time_stretch', 'audio_path']
-    
-    keys_in_order = ['label', 'source_file', 'source_time', 'event_time', 'event_duration',
-     'snr', 'role', 'pitch_shift', 'time_stretch', 'audio_path']
-    
+        
     n_fg = 0
     n_bg = 0
 

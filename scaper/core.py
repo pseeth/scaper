@@ -883,6 +883,7 @@ class Scaper(object):
         self.n_channels = 1
         self.fade_in_len = 0.01  # 10 ms
         self.fade_out_len = 0.01  # 10 ms
+        self.bitdepth = None
 
         # Start with empty specifications
         self.fg_spec = []
@@ -1616,7 +1617,7 @@ class Scaper(object):
                         # Ensure consistent sampling rate and channels
                         cmb.convert(samplerate=self.sr,
                                     n_channels=self.n_channels,
-                                    bitdepth=None)
+                                    bitdepth=self.bitdepth)
                         # Then trim
                         cmb.trim(e.value['source_time'],
                                  e.value['source_time'] +
@@ -1658,7 +1659,7 @@ class Scaper(object):
                         # Ensure consistent sampling rate and channels
                         tfm.convert(samplerate=self.sr,
                                     n_channels=self.n_channels,
-                                    bitdepth=None)
+                                    bitdepth=self.bitdepth)
                         # Trim
                         tfm.trim(e.value['source_time'],
                                  e.value['source_time'] +

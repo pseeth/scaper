@@ -107,8 +107,9 @@ def _compare_scaper_jams(jam, regjam):
     # everything but the specs and version can be compared directly:
     for k in set(ann.sandbox.scaper.keys()) | set(regann.sandbox.scaper.keys()):
         if k not in ['bg_spec', 'fg_spec', 'scaper_version']:
-            assert ann.sandbox.scaper[k] == regann.sandbox.scaper[k], (
-                'Unequal values for "{}"'.format(k))
+            if k in regann.sandbox.scaper:
+                assert ann.sandbox.scaper[k] == regann.sandbox.scaper[k], (
+                    'Unequal values for "{}"'.format(k))
 
     # to compare specs need to covert raw specs to list of lists
     # if something in EventSpec is not in the regann, we add it to regann so that 

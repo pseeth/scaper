@@ -49,3 +49,13 @@ To install the latest version of scaper from source:
 
 >>> cd scaper
 >>> pip install -e .
+
+Generating documentation
+------------------------
+You need three additional packages to generate the documentation:
+
+>>> pip install sphinx sphinx_rtd_theme sphinx_issues
+>>> cd docs/
+>>> make html
+
+The docs are now in the ``docs/_build/html`` directory.

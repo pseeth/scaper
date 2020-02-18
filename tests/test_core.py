@@ -104,9 +104,13 @@ def _compare_scaper_jams(jam, regjam):
     assert 'scaper' in ann.sandbox.keys()
     assert 'scaper' in regann.sandbox.keys()
 
+    excluded_scaper_sandbox_keys = [
+        'bg_spec', 'fg_spec', 'scaper_version', 'soundscape_audio_path', 
+        'isolated_events_audio_path'
+    ]
     # everything but the specs and version can be compared directly:
     for k in set(ann.sandbox.scaper.keys()) | set(regann.sandbox.scaper.keys()):
-        if k not in ['bg_spec', 'fg_spec', 'scaper_version']:
+        if k not in excluded_scaper_sandbox_keys:
             assert ann.sandbox.scaper[k] == regann.sandbox.scaper[k], (
                 'Unequal values for "{}"'.format(k))
 
@@ -238,7 +242,7 @@ def test_generate_from_jams(atol=1e-5, rtol=1e-8):
                          time_stretch=('uniform', 0.8, 1.2))
 
         # generate, then generate from the jams and compare audio files
-        # repeat 5 time
+        # repeat 5 times
         for _ in range(5):
             sc.generate(orig_wav_file.name, orig_jam_file.name,
                         disable_instantiation_warnings=True)
@@ -311,7 +315,7 @@ def test_generate_from_jams(atol=1e-5, rtol=1e-8):
                                   jams_outfile=gen_jam_file.name)
         orig_jam = jams.load(orig_jam_file.name)
         gen_jam = jams.load(gen_jam_file.name)
-        assert orig_jam == gen_jam
+        _compare_scaper_jams(orig_jam, gen_jam)
 
 
 def test_trim(atol=1e-5, rtol=1e-8):
@@ -883,8 +887,7 @@ def test_scaper_add_background():
                                   snr=("const", 0),
                                   role='background',
                                   pitch_shift=None,
-                                  time_stretch=None,
-                                  audio_path='background/0')
+                                  time_stretch=None)
     assert sc.bg_spec == [bg_event_expected]
 
 
@@ -914,8 +917,7 @@ def test_scaper_add_event():
                                   snr=('uniform', 10, 20),
                                   role='foreground',
                                   pitch_shift=('normal', 0, 1),
-                                  time_stretch=('uniform', 0.8, 1.2),
-                                  audio_path='foreground/0')
+                                  time_stretch=('uniform', 0.8, 1.2))
     assert sc.fg_spec[0] == fg_event_expected
 
 
@@ -930,8 +932,7 @@ def test_scaper_instantiate_event():
                          snr=('uniform', 10, 20),
                          role='foreground',
                          pitch_shift=('normal', 0, 1),
-                         time_stretch=('uniform', 0.8, 1.2),
-                         audio_path='foreground/0')
+                         time_stretch=('uniform', 0.8, 1.2))
 
     # test valid case
     sc = scaper.Scaper(10.0, fg_path=FG_PATH, bg_path=BG_PATH)
@@ -1479,7 +1480,7 @@ def create_scaper_scene():
     return sc
 
 
-def _test_generate_sources(SR, atol=1e-4, rtol=1e-8):
+def _test_generate_isolated_events(SR, isolated_events_path=None, atol=1e-4, rtol=1e-8):
     sc = create_scaper_scene()
     tmpfiles = []
 
@@ -1493,19 +1494,20 @@ def _test_generate_sources(SR, atol=1e-4, rtol=1e-8):
             pass
 
     wav_file = 'tests/mix.wav'
-    directory = 'tests/mix_sources'
-    with _delete_files(wav_file, directory):
+    if isolated_events_path is None:
+        isolated_events_path = 'tests/mix_events'
+    with _delete_files(wav_file, isolated_events_path):
         jam = sc._instantiate(disable_instantiation_warnings=True)
-        sc._generate_audio(wav_file, jam.annotations[0], save_sources=True)
-        source_directory = os.path.splitext(wav_file)[0] + '_sources'
+        sc._generate_audio(wav_file, jam.annotations[0], save_isolated_events=True, 
+                           isolated_events_path=isolated_events_path)
+        source_directory = os.path.splitext(wav_file)[0] + '_events'
         
         mix, sr = soundfile.read(wav_file)
         ann = jam.annotations.search(namespace='scaper')[0]
 
         sources = []
 
-        for e in ann.data:
-            source_path = os.path.join(source_directory, e.value['audio_path'] + '.wav')
+        for source_path in ann.sandbox.scaper.isolated_events_audio_path:
             tmpfiles.append(source_path)
             source = soundfile.read(source_path)[0]
             sources.append(source)
@@ -1523,15 +1525,16 @@ def _test_generate_sources(SR, atol=1e-4, rtol=1e-8):
 
         jam = sc._instantiate(disable_instantiation_warnings=True)
 
-        # Running with save_sources = True and reverb not None raises a warning
+        # Running with save_isolated_events = True and reverb not None raises a warning
         pytest.warns(ScaperWarning, sc._generate_audio, wav_file,
-                    jam.annotations[0], save_sources=True, reverb=.5)
+                    jam.annotations[0], save_isolated_events=True, reverb=.5)
 
-def test_generate_sources():
-    for sr in (16000, 22050, 44100):
+def test_generate_isolated_events():
+    for sr, isolated_events_path in zip(
+        (16000, 22050, 44100), (None, 'tests/mix_events', None)):
         # try it a bunch of times
         for i in range(10):
-            _test_generate_sources(sr)
+            _test_generate_isolated_events(sr, isolated_events_path)
 
 
 def test_generate():

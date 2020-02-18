@@ -28,8 +28,7 @@
             "snr": 0,
             "role": "background",
             "pitch_shift": null,
-            "time_stretch": null,
-            "audio_path": "background/0"
+            "time_stretch": null
           },
           "confidence": 1.0
         },
@@ -45,8 +44,7 @@
             "snr": 5,
             "role": "foreground",
             "pitch_shift": null,
-            "time_stretch": null,
-            "audio_path": "foreground/0"
+            "time_stretch": null
           },
           "confidence": 1.0
         },
@@ -62,8 +60,7 @@
             "snr": 20,
             "role": "foreground",
             "pitch_shift": 1,
-            "time_stretch": null,
-            "audio_path": "foreground/1"
+            "time_stretch": null
           },
           "confidence": 1.0
         },
@@ -79,8 +76,7 @@
             "snr": 10,
             "role": "foreground",
             "pitch_shift": null,
-            "time_stretch": 1.2,
-            "audio_path": "foreground/2"
+            "time_stretch": 1.2
           },
           "confidence": 1.0
         }
@@ -118,8 +114,7 @@
               ],
               "foreground",
               null,
-              null,
-              "foreground/0"
+              null
             ],
             [
               [
@@ -151,8 +146,7 @@
                 "const",
                 1
               ],
-              null,
-              "foreground/1"
+              null
             ],
             [
               [
@@ -184,8 +178,7 @@
               [
                 "const",
                 1.2
-              ],
-              "foreground/2"
+              ]
             ]
           ],
           "bg_spec": [
@@ -216,8 +209,7 @@
               ],
               "background",
               null,
-              null,
-              "background/0"
+              null
             ]
           ],
           "fg_labels": [
@@ -242,7 +234,9 @@
           "allow_repeated_label": true,
           "allow_repeated_source": true,
           "reverb": null,
-          "scaper_version": "1.0.2"
+          "scaper_version": "1.2.0",
+          "soundscape_audio_path": "tests/data/regression/soundscape_20190326_22050.wav",
+          "isolated_events_audio_path": []
         }
       },
       "time": 0,

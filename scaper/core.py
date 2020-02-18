@@ -38,7 +38,7 @@ SUPPORTED_DIST = {"const": _sample_const,
 EventSpec = namedtuple(
     'EventSpec',
     ['label', 'source_file', 'source_time', 'event_time', 'event_duration',
-     'snr', 'role', 'pitch_shift', 'time_stretch', 'audio_path'])
+     'snr', 'role', 'pitch_shift', 'time_stretch'])
 '''
 Container for storing event specifications, either probabilistic (i.e. using
 distribution tuples to specify possible values) or instantiated (i.e. storing
@@ -47,7 +47,8 @@ constants directly).
 
 
 def generate_from_jams(jams_infile, audio_outfile, fg_path=None, bg_path=None,
-                       jams_outfile=None, save_sources=False):
+                       jams_outfile=None, save_isolated_events=False, 
+                       isolated_events_path=None):
     '''
     Generate a soundscape based on an existing scaper JAMS file and save to
     disk.
@@ -75,13 +76,17 @@ def generate_from_jams(jams_infile, audio_outfile, fg_path=None, bg_path=None,
         saved. Useful when either fg_path or bg_path is not None, as it saves
         a new JAMS files where the source file paths match the new fg_path
         and/or bg_path.
-    save_sources : bool
-        If True, this will save the sources in a directory adjacent to the generated
-        mixture. The sources sum up to the mixture. Sources can be found at 
-        `[audio_path]_sources/foreground` and `[audio_path]_sources/background'. 
-        Source audio names follow the pattern: `[role]_[label][count]`, where count 
-        is the index of the source in self.fg_spec (this allows sources of the same 
-        label to be added more than once to the soudscape without breaking things).
+    save_isolated_events : bool
+        If True, this will save the isolated event audio in a directory adjacent to the generated
+        mixture, or to the path defined by `isolated_events_path`. The sources sum 
+        up to the mixture. Isolated events can be found (by default) at `[audio_path]_events/foreground` 
+        and `[audio_path]_events/background'. Isolated event file names follow the pattern: 
+        `[role]_[label][count]`, where count is the index of the isolated event in 
+        self.fg_spec (this allows events of the same label to be added more than 
+        once to the soundscape without breaking things).
+    isolated_events_path : str
+        Like `audio_path`, this determines the path of the directory within which 
+        the isolated event audio will be saved.
 
     Raises
     ------
@@ -99,7 +104,7 @@ def generate_from_jams(jams_infile, audio_outfile, fg_path=None, bg_path=None,
             'JAMS file does not contain any annotation with namespace '
             'scaper.')
 
-    ann = anns[0]
+    ann = jam.annotations.search(namespace='scaper')[0]
 
     # Update paths
     if fg_path is None:
@@ -151,7 +156,9 @@ def generate_from_jams(jams_infile, audio_outfile, fg_path=None, bg_path=None,
 
     # Generate audio and save to disk
     reverb = ann.sandbox.scaper['reverb']
-    sc._generate_audio(audio_outfile, ann, reverb=reverb, save_sources=save_sources,
+    sc._generate_audio(audio_outfile, ann, reverb=reverb, 
+                       save_isolated_events=save_isolated_events, 
+                       isolated_events_path=isolated_events_path,
                        disable_sox_warnings=True)
 
     # If there are slice (trim) operations, need to perform them!
@@ -1042,7 +1049,6 @@ class Scaper(object):
         _validate_event(label, source_file, source_time, event_time,
                         event_duration, snr, self.bg_labels, None, None)
 
-        audio_path = '{:s}/{:d}'.format(role, len(self.bg_spec))
         # Create background sound event
         bg_event = EventSpec(label=label,
                              source_file=source_file,
@@ -1052,8 +1058,7 @@ class Scaper(object):
                              snr=snr,
                              role=role,
                              pitch_shift=pitch_shift,
-                             time_stretch=time_stretch,
-                             audio_path=audio_path)
+                             time_stretch=time_stretch)
 
         # Add event to background spec
         self.bg_spec.append(bg_event)
@@ -1158,7 +1163,6 @@ class Scaper(object):
                         time_stretch)
 
         # Create event
-        audio_path = '{:s}/{:d}'.format('foreground', len(self.fg_spec))
         event = EventSpec(label=label,
                           source_file=source_file,
                           source_time=source_time,
@@ -1167,8 +1171,7 @@ class Scaper(object):
                           snr=snr,
                           role='foreground',
                           pitch_shift=pitch_shift,
-                          time_stretch=time_stretch,
-                          audio_path=audio_path)
+                          time_stretch=time_stretch)
 
         # Add event to foreground specification
         self.fg_spec.append(event)
@@ -1457,10 +1460,6 @@ class Scaper(object):
         # is set internally, not by the user).
         role = event.role
 
-        # get audio_path relative to soundscape path, determined by label and role and 
-        # count
-        audio_path = event.audio_path
-
         # determine pitch_shift
         if event.pitch_shift is not None:
             pitch_shift = _get_value_from_dist(event.pitch_shift, self.random_state)
@@ -1476,8 +1475,7 @@ class Scaper(object):
                                        snr=snr,
                                        role=role,
                                        pitch_shift=pitch_shift,
-                                       time_stretch=time_stretch,
-                                       audio_path=audio_path)
+                                       time_stretch=time_stretch)
         # Return
         return instantiated_event
 
@@ -1605,7 +1603,9 @@ class Scaper(object):
             allow_repeated_label=allow_repeated_label,
             allow_repeated_source=allow_repeated_source,
             reverb=reverb,
-            scaper_version=scaper_version)
+            scaper_version=scaper_version,
+            soundscape_audio_path=None,
+            isolated_events_audio_path=[])
 
         # Add annotation to jams
         jam.annotations.append(ann)
@@ -1617,7 +1617,7 @@ class Scaper(object):
         return jam
 
     def _generate_audio(self, audio_path, ann, reverb=None,
-                        save_sources=False,
+                        save_isolated_events=False, isolated_events_path=None,
                         disable_sox_warnings=True):
         '''
         Generate audio based on a scaper annotation and save to disk.
@@ -1633,13 +1633,17 @@ class Scaper(object):
             (no reverberation) and 1 (maximum reverberation). Use None
             (default) to prevent the soundscape from going through the reverb
             module at all.
-        save_sources : bool
-            If True, this will save the sources in a directory adjacent to the generated
-            mixture. The sources sum up to the mixture. Sources can be found at 
-            `[audio_path]_sources/foreground` and `[audio_path]_sources/background'. 
-            Source audio names follow the pattern: `[role]_[label][count]`, where count 
-            is the index of the source in self.fg_spec (this allows sources of the same 
-            label to be added more than once to the soudscape without breaking things).
+        save_isolated_events : bool
+            If True, this will save the isolated event audio in a directory adjacent to the generated
+            mixture, or to the path defined by `isolated_events_path`. The sources sum 
+            up to the mixture. Isolated events can be found (by default) at `[audio_path]_events/foreground` 
+            and `[audio_path]_events/background'. Isolated event file names follow the pattern: 
+            `[role]_[label][count]`, where count is the index of the isolated event in 
+            self.fg_spec (this allows events of the same label to be added more than 
+            once to the soundscape without breaking things).
+        isolated_events_path : str
+            Like `audio_path`, this determines the path of the directory within which 
+            the isolated event audio will be saved.
         disable_sox_warnings : bool
             When True (default), warnings from the pysox module are suppressed
             unless their level is ``'CRITICAL'``.
@@ -1670,8 +1674,9 @@ class Scaper(object):
             # Array for storing all tmp files (one for every event)
             tmpfiles = []
             with _close_temp_files(tmpfiles):
+                isolated_events_audio_path = []
 
-                for e in ann.data:
+                for i, e in enumerate(ann.data):
                     if e.value['role'] == 'background':
                         # Concatenate background if necessary. Right now we
                         # always concatenate the background at least once,
@@ -1803,30 +1808,37 @@ class Scaper(object):
                             'Unsupported event role: {:s}'.format(
                                 e.value['role']))
 
-                    if save_sources:
+                    if save_isolated_events:
                         base, ext = os.path.splitext(audio_path)
-                        source_folder = '{:s}_sources'.format(base)
-                        source_audio_path = os.path.join(
-                            source_folder, e.value['audio_path'] + ext)
-                        directory = os.path.dirname(source_audio_path)
+                        if isolated_events_path is None:
+                            event_folder = '{:s}_events'.format(base)
+                        else:
+                            event_folder = isolated_events_path
+
+                        event_audio_path = os.path.join(
+                            event_folder, 
+                            '{:s}{:d}_{:s}{:s}'.format(
+                                e.value['role'], i, e.value['label'], ext))
+                        directory = os.path.dirname(event_audio_path)
                         if not os.path.exists(directory):
                             # In Python 3.2 and above we could do 
                             # os.makedirs(..., exist_ok=True) but we test back to
                             # Python 2.7.
                             os.makedirs(directory)
-                        shutil.copy(tmpfiles[-1].name, source_audio_path)
+                        shutil.copy(tmpfiles[-1].name, event_audio_path)
+                        isolated_events_audio_path.append(event_audio_path)
 
-                        #TODO what to do in this case? for now throw a warning
+                        #TODO what do we do in this case? for now throw a warning
                         if reverb is not None:
                             warnings.warn(
-                                "Reverb is on and save_sources is True. Reverberation "
+                                "Reverb is on and save_isolated_events is True. Reverberation "
                                 "is applied to the mixture but not output "
                                 "source files. In this case the sum of the "
                                 "sources do not add up to the mixture", ScaperWarning)
 
 
                 # Finally combine all the files and optionally apply reverb
-                # If we have more than one tempfile (i.e.g background + at
+                # If we have more than one tempfile (i.e. background + at
                 # least one foreground event, we need a combiner. If there's
                 # only the background track, then we need a transformer!
                 if len(tmpfiles) == 0:
@@ -1846,12 +1858,17 @@ class Scaper(object):
                     # TODO: do we want to normalize the final output?
                     cmb.build([t.name for t in tmpfiles], audio_path, 'mix')
 
+        if isinstance(ann.sandbox.scaper, dict):
+            ann.sandbox.scaper['soundscape_audio_path'] = audio_path
+            ann.sandbox.scaper['isolated_events_audio_path'] = isolated_events_audio_path
+        else:
+            ann.sandbox.scaper.soundscape_audio_path = audio_path
+            ann.sandbox.scaper.isolated_events_audio_path = isolated_events_audio_path
 
     def generate(self, audio_path, jams_path, allow_repeated_label=True,
-                 allow_repeated_source=True,
-                 reverb=None, save_sources=False, disable_sox_warnings=True, 
-                 no_audio=False, txt_path=None, txt_sep='\t',
-                 disable_instantiation_warnings=False):
+                 allow_repeated_source=True,reverb=None, save_isolated_events=False, 
+                 isolated_events_path=None, disable_sox_warnings=True, no_audio=False, 
+                 txt_path=None, txt_sep='\t', disable_instantiation_warnings=False):
         '''
         Generate a soundscape based on the current specification and save to
         disk as both an audio file and a JAMS file describing the soundscape.
@@ -1875,13 +1892,17 @@ class Scaper(object):
             (no reverberation) and 1 (maximum reverberation). Use None
             (default) to prevent the soundscape from going through the reverb
             module at all.
-        save_sources : bool
-            If True, this will save the sources in a directory adjacent to the generated
-            mixture. The sources sum up to the mixture. Sources can be found at 
-            `[audio_path]_sources/foreground` and `[audio_path]_sources/background'. 
-            Source audio names follow the pattern: `[role]_[label][count]`, where count 
-            is the index of the source in self.fg_spec (this allows sources of the same 
-            label to be added more than once to the soudscape without breaking things).
+        save_isolated_events : bool
+            If True, this will save the isolated event audio in a directory adjacent to the generated
+            mixture, or to the path defined by `isolated_events_path`. The sources sum 
+            up to the mixture. Isolated events can be found (by default) at `[audio_path]_events/foreground` 
+            and `[audio_path]_events/background'. Isolated event file names follow the pattern: 
+            `[role]_[label][count]`, where count is the index of the isolated event in 
+            self.fg_spec (this allows events of the same label to be added more than 
+            once to the soundscape without breaking things).
+        isolated_events_path : str
+            Like `audio_path`, this determines the path of the directory within which 
+            the isolated event audio will be saved.
         disable_sox_warnings : bool
             When True (default), warnings from the pysox module are suppressed
             unless their level is ``'CRITICAL'``.
@@ -1929,7 +1950,9 @@ class Scaper(object):
 
         # Generate the audio and save to disk
         if not no_audio:
-            self._generate_audio(audio_path, ann, reverb=reverb, save_sources=save_sources,
+            self._generate_audio(audio_path, ann, reverb=reverb, 
+                                 save_isolated_events=save_isolated_events,
+                                 isolated_events_path=isolated_events_path,
                                  disable_sox_warnings=disable_sox_warnings)
 
         # Finally save JAMS to disk too

@@ -139,7 +139,7 @@ def _compare_scaper_jams(jam, regjam):
     ann_eventspec_keys = list(set(ann_eventspec_keys))
     
     keys_in_order = ['label', 'source_file', 'source_time', 'event_time', 'event_duration',
-     'snr', 'role', 'pitch_shift', 'time_stretch', 'audio_path']
+     'snr', 'role', 'pitch_shift', 'time_stretch']
     
     n_fg = 0
     n_bg = 0

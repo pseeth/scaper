@@ -374,7 +374,7 @@ of the soundscape can be accessed directly via the jams file as follows:
     jam = jams.load(jams_file)
     ann = jam.annotations.search(namespace='scaper')[0]
 
-    soundscape_audio, _ = sf.read(ann.sandbox.scaper.soundscape_audio_path)
+    soundscape_audio, sr = sf.read(ann.sandbox.scaper.soundscape_audio_path)
     isolated_event_audio_paths = ann.sandbox.scaper.isolated_events_audio_path
     isolated_audio = []
 

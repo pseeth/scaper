@@ -380,7 +380,11 @@ of the soundscape can be accessed directly via the jams file as follows:
 
     for event_spec, event_audio in zip(ann, isolated_event_audio_paths):
         # event_spec contains the event description, label, etc
-        # event_audio contains the actual audio
+        # event_audio contains the path to the actual audio
+        # make sure the path matches the event description
+        assert event_spec.value['role'] in event_audio_path
+        assert event_spec.value['label'] in event_audio_path
+
         isolated_audio.append(sf.read(event_audio)[0])
 
     # the sum of the isolated audio should sum to the soundscape

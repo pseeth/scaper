@@ -1474,7 +1474,7 @@ def create_scaper_scene():
         event_time=('const', 7),
         event_duration=('const', 2),
         snr=('const', 10),
-        pitch_shift=None,
+        pitch_shift=('uniform', -1, 1),
         time_stretch=('uniform', .8, 1.2))
         
     return sc    
@@ -1502,18 +1502,25 @@ def _test_generate_isolated_events(SR, isolated_events_path=None, atol=1e-4, rto
                            isolated_events_path=isolated_events_path)
         source_directory = os.path.splitext(wav_file)[0] + '_events'
         
-        mix, sr = soundfile.read(wav_file)
-        ann = jam.annotations.search(namespace='scaper')[0]
 
         isolated_events = []
+        ann = jam.annotations.search(namespace='scaper')[0]
 
-        for isolated_event_path in ann.sandbox.scaper.isolated_events_audio_path:
-            tmpfiles.append(isolated_event_path)
-            isolated_event = soundfile.read(isolated_event_path)[0]
-            isolated_events.append(isolated_event)
+        soundscape_audio, _ = soundfile.read(ann.sandbox.scaper.soundscape_audio_path)
+        isolated_event_audio_paths = ann.sandbox.scaper.isolated_events_audio_path
+        isolated_audio = []
 
-        summed_mix = sum(isolated_events)
-        assert np.allclose(mix, summed_mix, atol=1e-4, rtol=1e-8)
+        for event_spec, event_audio_path in zip(ann, isolated_event_audio_paths):
+            # event_spec contains the event description, label, etc
+            # event_audio contains the path to the actual audio
+
+            # make sure the path matches the event description
+            assert event_spec.value['role'] in event_audio_path
+            assert event_spec.value['label'] in event_audio_path
+            isolated_audio.append(soundfile.read(event_audio_path)[0])
+
+        # the sum of the isolated audio should sum to the soundscape
+        assert np.allclose(sum(isolated_audio), soundscape_audio, atol=1e-4, rtol=1e-8)
 
         jam = sc._instantiate(disable_instantiation_warnings=True)
 

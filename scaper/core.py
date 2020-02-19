@@ -165,21 +165,23 @@ def generate_from_jams(jams_infile, audio_outfile, fg_path=None, bg_path=None,
                        disable_sox_warnings=True)
 
     # If there are slice (trim) operations, need to perform them!
-    # Need to add this logic for the sources too?
+    # Need to add this logic for the isolated events too.
     if 'slice' in ann.sandbox.keys():
         for sliceop in ann.sandbox['slice']:
             # must use temp file in order to save to same file
             tmpfiles = []
+            audio_files = [audio_outfile] + ann.sandbox.scaper.isolated_events_audio_path
             with _close_temp_files(tmpfiles):
-                # Create tmp file
-                tmpfiles.append(
-                    tempfile.NamedTemporaryFile(suffix='.wav', delete=False))
-                # Save trimmed result to temp file
-                tfm = sox.Transformer()
-                tfm.trim(sliceop['slice_start'], sliceop['slice_end'])
-                tfm.build(audio_outfile, tmpfiles[-1].name)
-                # Copy result back to original file
-                shutil.copyfile(tmpfiles[-1].name, audio_outfile)
+                for audio_file in audio_files:
+                    # Create tmp file
+                    tmpfiles.append(
+                        tempfile.NamedTemporaryFile(suffix='.wav', delete=False))
+                    # Save trimmed result to temp file
+                    tfm = sox.Transformer()
+                    tfm.trim(sliceop['slice_start'], sliceop['slice_end'])
+                    tfm.build(audio_file, tmpfiles[-1].name)
+                    # Copy result back to original file
+                    shutil.copyfile(tmpfiles[-1].name, audio_outfile)
 
     # Optionally save new jams file
     if jams_outfile is not None:

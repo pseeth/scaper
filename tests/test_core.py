@@ -1505,22 +1505,22 @@ def _test_generate_isolated_events(SR, isolated_events_path=None, atol=1e-4, rto
         mix, sr = soundfile.read(wav_file)
         ann = jam.annotations.search(namespace='scaper')[0]
 
-        sources = []
+        isolated_events = []
 
-        for source_path in ann.sandbox.scaper.isolated_events_audio_path:
-            tmpfiles.append(source_path)
-            source = soundfile.read(source_path)[0]
-            sources.append(source)
+        for isolated_event_path in ann.sandbox.scaper.isolated_events_audio_path:
+            tmpfiles.append(isolated_event_path)
+            isolated_event = soundfile.read(isolated_event_path)[0]
+            isolated_events.append(isolated_event)
 
         # There are annoying off by 1 errors still.
         # Here's a very strict test (commented out)
-        # assert np.allclose(mix, sum(sources), atol=1e-4, rtol=1e-8) 
+        # assert np.allclose(mix, sum(isolated_events), atol=1e-4, rtol=1e-8) 
 
         # and a less strict test 
-        min_length = min(s.shape[0] for s in sources)
+        min_length = min(s.shape[0] for s in isolated_events)
         summed = 0
-        for s in sources:
-            summed += s[:min_length]
+        for e in isolated_events:
+            summed += e[:min_length]
         assert np.allclose(mix[:min_length], summed, atol=1e-4, rtol=1e-8) 
 
         jam = sc._instantiate(disable_instantiation_warnings=True)

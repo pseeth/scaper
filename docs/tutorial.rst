@@ -300,7 +300,7 @@ will contain a dictionary with all instantiated parameter values. This allows
 us to fully reconstruct the audio of a scaper soundscape from its JAMS annotation
 using the ``scaper.generate_from_jams()`` function (not discussed in this tutorial).
 
-Finally, we can optionally provide ``generate()`` a path to a text file
+We can optionally provide ``generate()`` a path to a text file
 with the ``txt_path`` parameter. If provided, scaper will also save a simplified
 annotation of the soundscape in a tab-separated text file with three columns
 for the start time, end time, and label of every foreground sound event (note that
@@ -308,6 +308,83 @@ the background is not stored in the simplified annotation!). The default
 separator is a tab, for compatibility with the `Audacity <http://www.audacityteam.org/>`_
 label file format. The separator can be changed via ``generate()``'s ``txt_sep``
 parameter.
+
+Synthesizing isolated events alongside the soundscape
+-----------------------------------------------------
+We can also output the isolated events alongside the soundscape. This is especially
+useful for generating datasets that can be used to train and evaluate source separation
+algorithms or models. To enable this, two additional arguments can be given to 
+``generate()`` and ``generate_from_jams``:
+
+* ``save_isolated_events``: whether or not to save the audio corresponding to the 
+  isolated events within the synthesized soundscape. In our example, there are three 
+  isolated events - the background event and the two foreground events.
+* ``isolated_events_path``: the path where the audio corresponding to the isolated events
+  will be saved. If this is not specified, but ``save_isolated_events = True``, the events
+  are saved to ``{audiofile}_events/``, where ``{audiofile}`` corresponds to the value of
+  ``audiofile``, where the soundscape is saved.
+
+.. code-block:: python
+
+    audiofile = 'soundscape.wav'
+    jamsfile = 'soundscape.jams'
+    txtfile = 'soundscape.txt'
+    sc.generate(audiofile, jamsfile,
+                allow_repeated_label=True,
+                allow_repeated_source=True,
+                reverb=None,
+                disable_sox_warnings=True,
+                no_audio=False,
+                txt_path=txtfile,
+                save_isolated_events=True)
+
+The code above will produce the following directory structure:
+
+.. code-block::
+
+    soundscape.wav 
+    soundscape.jams 
+    soundscape.txt 
+    soundscape_events/
+      background0_{label0}.wav
+      foreground0_{label0}.wav
+      foreground1_{label1}.wav
+
+The labels for each isolated event are determined after ``generate`` is called. 
+If ``isolated_events_path`` were specified, then it would produce:
+
+.. code-block::
+
+    soundscape.wav 
+    soundscape.jams 
+    soundscape.txt 
+    {isolated_events_path}/
+      background0_{label0}.wav
+      foreground0_{label0}.wav
+      foreground1_{label1}.wav
+
+The audio of the isolated events is guaranteed to sum up to the soundscape audio if and
+only if ``reverb`` is ``None``! The audio of the isolated events as well as the audio
+of the soundscape can be accessed directly via the jams file as follows:
+
+.. code-block:: python
+
+    import soundfile as sf
+
+    jam = jams.load(jams_file)
+    ann = jam.annotations.search(namespace='scaper')[0]
+
+    soundscape_audio, _ = sf.read(ann.sandbox.scaper.soundscape_audio_path)
+    isolated_event_audio_paths = ann.sandbox.scaper.isolated_events_audio_path
+    isolated_audio = []
+
+    for event_spec, event_audio in zip(ann, isolated_event_audio_paths):
+        # event_spec contains the event description, label, etc
+        # event_audio contains the actual audio
+        isolated_audio.append(sf.read(event_audio)[0])
+
+    # the sum of the isolated audio should sum to the soundscape
+    assert sum(isolated_audio) == soundscape_audio
 
 That's it! For a more detailed example of automatically synthesizing 1000
 soundscapes using a single ``Scaper`` object, please see the :ref:`examples`.

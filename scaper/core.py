@@ -26,6 +26,7 @@ from .util import max_polyphony
 from .util import polyphony_gini
 from .util import is_real_number, is_real_array
 from .audio import get_integrated_lufs
+from .audio import match_sample_length
 from .version import version as scaper_version
 
 SUPPORTED_DIST = {"const": _sample_const,
@@ -191,7 +192,7 @@ def generate_from_jams(jams_infile, audio_outfile, fg_path=None, bg_path=None,
 def trim(audio_infile, jams_infile, audio_outfile, jams_outfile, start_time,
          end_time, no_audio=False):
     '''
-    Trim and audio file and corresponding Scaper JAMS file and save to disk.
+    Trim an audio file and corresponding Scaper JAMS file and save to disk.
 
     Given an input audio file and corresponding jams file, trim both the audio
     and all annotations in the jams file to the time range ``[start_time,
@@ -226,7 +227,6 @@ def trim(audio_infile, jams_infile, audio_outfile, jams_outfile, start_time,
     # Special work for annotations of the scaper 'scaper' namespace
     for ann in jam_sliced.annotations:
         if ann.namespace == 'scaper':
-
             # DON'T MODIFY event's value dict! Keeps original instantiated
             # values for reconstruction / reproducibility.
             # Count number of FG events
@@ -1841,7 +1841,6 @@ class Scaper(object):
                                 "source files. In this case the sum of the "
                                 "sources do not add up to the mixture", ScaperWarning)
 
-
                 # Finally combine all the files and optionally apply reverb
                 # If we have more than one tempfile (i.e. background + at
                 # least one foreground event, we need a combiner. If there's
@@ -1856,13 +1855,19 @@ class Scaper(object):
                         tfm.reverb(reverberance=reverb * 100)
                     # TODO: do we want to normalize the final output?
                     tfm.build(tmpfiles[0].name, audio_path)
-                else:
+                else:                        
                     cmb = sox.Combiner()
                     if reverb is not None:
                         cmb.reverb(reverberance=reverb * 100)
                     # TODO: do we want to normalize the final output?
                     cmb.build([t.name for t in tmpfiles], audio_path, 'mix')
-
+                
+                # Make sure every single audio file has exactly the same duration 
+                # using soundfile.
+                duration_in_samples = int(sox.file_info.duration(audio_path) * self.sr)
+                for _audio_file in [audio_path] + isolated_events_audio_path:
+                    match_sample_length(_audio_file, duration_in_samples)
+        
         ann.sandbox.scaper.soundscape_audio_path = audio_path
         ann.sandbox.scaper.isolated_events_audio_path = isolated_events_audio_path
 
@@ -1906,7 +1911,8 @@ class Scaper(object):
             the isolated event audio will be saved.
         disable_sox_warnings : bool
             When True (default), warnings from the pysox module are suppressed
-            unless their level is ``'CRITICAL'``.
+            unless their level is ``'CRITICAL'``. If you're experiencing issues related 
+            to audio I/O setting this parameter to False may help with debugging.
         no_audio : bool
             If true only generates a JAMS file and no audio is saved to disk.
         txt_path: str or None

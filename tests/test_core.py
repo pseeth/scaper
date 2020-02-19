@@ -1463,7 +1463,7 @@ def create_scaper_scene():
         event_duration=('truncnorm', 3, 1, 1, 10),
         snr=('uniform', 10, 20),
         pitch_shift=('uniform', -1, 1),
-        time_stretch=None)
+        time_stretch=(None))
 
     sc.add_event(
         label=('const', 'human_voice'),
@@ -1512,16 +1512,8 @@ def _test_generate_isolated_events(SR, isolated_events_path=None, atol=1e-4, rto
             isolated_event = soundfile.read(isolated_event_path)[0]
             isolated_events.append(isolated_event)
 
-        # There are annoying off by 1 errors still.
-        # Here's a very strict test (commented out)
-        # assert np.allclose(mix, sum(isolated_events), atol=1e-4, rtol=1e-8) 
-
-        # and a less strict test 
-        min_length = min(s.shape[0] for s in isolated_events)
-        summed = 0
-        for e in isolated_events:
-            summed += e[:min_length]
-        assert np.allclose(mix[:min_length], summed, atol=1e-4, rtol=1e-8) 
+        summed_mix = sum(isolated_events)
+        assert np.allclose(mix, summed_mix, atol=1e-4, rtol=1e-8)
 
         jam = sc._instantiate(disable_instantiation_warnings=True)
 

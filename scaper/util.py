@@ -45,8 +45,6 @@ def _close_temp_files(tmpfiles):
         raise
     _close()
 
-
-
 @contextmanager
 def _set_temp_logging_level(level):
     '''

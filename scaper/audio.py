@@ -8,6 +8,7 @@ https://github.com/mathos/neg23/
 import subprocess
 import sox
 import numpy as np
+import soundfile
 import tempfile
 from .scaper_exceptions import ScaperError
 from .util import _close_temp_files
@@ -104,3 +105,40 @@ def get_integrated_lufs(filepath, min_duration=0.5):
         loudness_stats = r128stats(filepath)
 
     return loudness_stats['I']
+
+
+def match_sample_length(audio_path, duration_in_samples):
+    '''
+    Takes a path to an audio file and a duration defined in samples. The audio
+    is loaded from the specifid audio_path and padded or trimmed such that it
+    matches the duration_in_samples. The modified audio is then saved back to
+    audio_path. This ensures that you the durations match exactly. If the audio
+    needed to be padded, it is padded to zeros to the end of the audio file.
+
+    Parameters
+    ----------
+    audio_path : str
+        Path to the audio file that will be modified.
+    duration_in_samples : int
+        Duration that the audio will be padded or trimmed to.
+
+    '''
+    if duration_in_samples <= 0:
+        raise ScaperError(
+            'Duration in samples to match sample length for audio must be > 0.')
+
+    audio, sr = soundfile.read(audio_path)
+    current_duration = audio.shape[0]
+    old_shape = audio.shape
+
+    if duration_in_samples < current_duration:
+        audio = audio[:duration_in_samples]
+    elif duration_in_samples > current_duration:
+        n_pad = duration_in_samples - current_duration
+
+        pad_width = [(0, 0) for _ in range(len(audio.shape))]
+        pad_width[0] = (0, n_pad)
+
+        audio = np.pad(audio, pad_width, 'constant')
+
+    soundfile.write(audio_path, audio, sr)

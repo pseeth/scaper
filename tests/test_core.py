@@ -115,60 +115,13 @@ def _compare_scaper_jams(jam, regjam):
                 'Unequal values for "{}"'.format(k))
 
     # to compare specs need to covert raw specs to list of lists
-    # if something in EventSpec is not in the regann, we add it to regann so that 
-    # the test doesn't fail because of an expansion of EventSpec after the
-    # regression data was made. We do this by iterating through the EventSpec tuple
-    # of the generated jams and the regression jams and deletes items in the generated jams 
-    # that don't match with the regression data.
-    
     bg_spec_list = [[list(x) if isinstance(x, tuple) else x for x in e] for e in
                     ann.sandbox.scaper['bg_spec']] 
     fg_spec_list = [[list(x) if isinstance(x, tuple) else x for x in e] for e in
                     ann.sandbox.scaper['fg_spec']]
     
-    regann_eventspec_keys = []
-    for e in regann:
-        for k in e.value.keys():
-            regann_eventspec_keys.append(k)
-    regann_eventspec_keys = list(set(regann_eventspec_keys))
-    
-    ann_eventspec_keys = []
-    for e in ann:
-        for k in e.value.keys():
-            ann_eventspec_keys.append(k)
-    ann_eventspec_keys = list(set(ann_eventspec_keys))
-    
-    keys_in_order = ['label', 'source_file', 'source_time', 'event_time', 'event_duration',
-     'snr', 'role', 'pitch_shift', 'time_stretch']
-    
-    n_fg = 0
-    n_bg = 0
-
-    for a,e in zip(ann,regann):
-        indices = [(keys_in_order.index(k), k)
-                for k in ann_eventspec_keys if k not in regann_eventspec_keys]
-        for index, key in indices:
-            if e.value['role'] == 'foreground':
-                fg_spec_list[n_fg].pop(index)
-            elif e.value['role'] == 'background':
-                bg_spec_list[n_bg].pop(index)
-            a.value.pop(key)
-
-        if e.value['role'] == 'foreground':
-            n_fg += 1
-        if e.value['role'] == 'background':
-            n_bg += 1
-
-    # I don't think this tests makes much sense...in earlier versions of Python (2.7,
-    # 3.4 and 3.5), the NamedTuple object changes the order of its fields as far as I
-    # can tell. So manipulating the spec becomes hard if we added stuff to EventSpec
-    # because we don't know the position of the missing key so that we don't compare it.
-    # In any case, a test down below compares the data by key instead of as a list.
-    # To make it work, I'm keeping the key order hard coded here.
-    
     assert (fg_spec_list == regann.sandbox.scaper['fg_spec'])
     assert (bg_spec_list == regann.sandbox.scaper['bg_spec'])
-    
 
     # 3.3. compare namespace, time and duration
     assert ann.namespace == regann.namespace

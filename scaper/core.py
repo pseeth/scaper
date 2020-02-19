@@ -156,6 +156,9 @@ def generate_from_jams(jams_infile, audio_outfile, fg_path=None, bg_path=None,
 
     # Generate audio and save to disk
     reverb = ann.sandbox.scaper['reverb']
+
+    # Cast ann.sandbox.scaper to a Sandbox object
+    ann.sandbox.scaper = jams.Sandbox(**ann.sandbox.scaper)
     sc._generate_audio(audio_outfile, ann, reverb=reverb, 
                        save_isolated_events=save_isolated_events, 
                        isolated_events_path=isolated_events_path,
@@ -1858,12 +1861,8 @@ class Scaper(object):
                     # TODO: do we want to normalize the final output?
                     cmb.build([t.name for t in tmpfiles], audio_path, 'mix')
 
-        if isinstance(ann.sandbox.scaper, dict):
-            ann.sandbox.scaper['soundscape_audio_path'] = audio_path
-            ann.sandbox.scaper['isolated_events_audio_path'] = isolated_events_audio_path
-        else:
-            ann.sandbox.scaper.soundscape_audio_path = audio_path
-            ann.sandbox.scaper.isolated_events_audio_path = isolated_events_audio_path
+        ann.sandbox.scaper.soundscape_audio_path = audio_path
+        ann.sandbox.scaper.isolated_events_audio_path = isolated_events_audio_path
 
     def generate(self, audio_path, jams_path, allow_repeated_label=True,
                  allow_repeated_source=True,reverb=None, save_isolated_events=False, 

@@ -1477,7 +1477,7 @@ def create_scaper_scene():
         pitch_shift=None,
         time_stretch=('uniform', .8, 1.2))
         
-    return sc
+    return sc    
 
 
 def _test_generate_isolated_events(SR, isolated_events_path=None, atol=1e-4, rtol=1e-8):
